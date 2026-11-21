@@ -1,0 +1,214 @@
+// Native tests for Karkain-Validation. No imports: scripts/verify.ps1
+// prepends the real module source before running `karkain test`.
+
+func is_even(n) {
+    return (n / 2) * 2 == n
+}
+
+// --- slice 03.1: core result model ---
+
+func test_new_report_is_empty() {
+    let r = new_report()
+    assert_eq(error_count(r), 0)
+    assert(is_valid(r))
+}
+
+func test_add_error_and_accessors() {
+    let r = new_report()
+    r = add_error(r, "age", "min", "too small")
+    assert_eq(error_count(r), 1)
+    assert(is_valid(r) == false)
+    assert_eq(error_field(r, 0), "age")
+    assert_eq(error_rule(r, 0), "min")
+    assert_eq(error_message(r, 0), "too small")
+}
+
+func test_expect_primitive() {
+    let r = new_report()
+    r = expect(r, "x", "custom", true, "ignored")
+    r = expect(r, "y", "custom", false, "failed")
+    assert_eq(error_count(r), 1)
+    assert_eq(error_field(r, 0), "y")
+}
+
+func test_merge_and_field_count() {
+    let a = add_error(new_report(), "name", "required", "empty")
+    let b = add_error(new_report(), "name", "min", "too short")
+    let r = merge_reports(a, b)
+    assert_eq(error_count(r), 2)
+    assert_eq(field_error_count(r, "name"), 2)
+    assert_eq(field_error_count(r, "other"), 0)
+}
+
+// --- slice 03.2: required, empty, min, max ---
+
+func test_required_positive_negative() {
+    let r = new_report()
+    r = required(r, "name", "Ajit")
+    r = required(r, "blank", "")
+    r = required(r, "list", [])
+    assert_eq(error_count(r), 2)
+    assert_eq(error_rule(r, 0), "required")
+}
+
+func test_require_nonzero() {
+    let r = new_report()
+    r = require_nonzero(r, "count", 3)
+    r = require_nonzero(r, "zero", 0)
+    assert_eq(error_count(r), 1)
+    assert_eq(error_rule(r, 0), "nonzero")
+}
+
+func test_empty_positive_negative() {
+    let r = new_report()
+    r = empty(r, "blank", "")
+    r = empty(r, "full", "x")
+    assert_eq(error_count(r), 1)
+    assert_eq(error_rule(r, 0), "empty")
+}
+
+func test_min_value_boundary() {
+    let r = new_report()
+    r = min_value(r, "at", 18, 18)
+    r = min_value(r, "below", 17, 18)
+    assert_eq(error_count(r), 1)
+    assert_eq(error_message(r, 0), "below must be >= 18")
+}
+
+func test_max_value_boundary() {
+    let r = new_report()
+    r = max_value(r, "at", 65, 65)
+    r = max_value(r, "above", 66, 65)
+    assert_eq(error_count(r), 1)
+    assert_eq(error_message(r, 0), "above must be <= 65")
+}
+
+// --- slice 03.3: length and range ---
+
+func test_min_length_boundary() {
+    let r = new_report()
+    r = min_length(r, "at", "abc", 3)
+    r = min_length(r, "short", "ab", 3)
+    assert_eq(error_count(r), 1)
+}
+
+func test_max_length_boundary() {
+    let r = new_report()
+    r = max_length(r, "at", "abc", 3)
+    r = max_length(r, "long", "abcd", 3)
+    assert_eq(error_count(r), 1)
+}
+
+func test_in_range_boundaries() {
+    let r = new_report()
+    r = in_range(r, "low", 1, 1, 10)
+    r = in_range(r, "high", 10, 1, 10)
+    r = in_range(r, "under", 0, 1, 10)
+    r = in_range(r, "over", 11, 1, 10)
+    assert_eq(error_count(r), 2)
+    assert_eq(error_rule(r, 0), "range")
+}
+
+func test_length_range() {
+    let r = new_report()
+    r = length_range(r, "ok", "abc", 1, 5)
+    r = length_range(r, "short", "", 1, 5)
+    r = length_range(r, "long", "abcdef", 1, 5)
+    assert_eq(error_count(r), 2)
+    assert_eq(error_rule(r, 0), "length_range")
+}
+
+// --- slice 03.4: formats ---
+
+func test_is_digits() {
+    assert(is_digits("12345"))
+    assert(is_digits("") == false)
+    assert(is_digits("12a45") == false)
+}
+
+func test_is_alpha() {
+    assert(is_alpha("AbcXYZ"))
+    assert(is_alpha("abc1") == false)
+}
+
+func test_is_alphanumeric() {
+    assert(is_alphanumeric("Abc123"))
+    assert(is_alphanumeric("abc-1") == false)
+}
+
+func test_is_email_basic() {
+    assert(is_email_basic("a@b.com"))
+    assert(is_email_basic("nope") == false)
+    assert(is_email_basic("@b.com") == false)
+}
+
+func test_format_rule_and_unknown() {
+    let r = new_report()
+    r = format(r, "zip", "12345", "digits")
+    r = format(r, "bad", "12x", "digits")
+    r = format(r, "weird", "x", "unknown")
+    assert_eq(error_count(r), 2)
+    assert_eq(error_rule(r, 0), "format")
+}
+
+// --- slice 03.5: custom rules ---
+
+func test_custom_rule_success_failure() {
+    let r = new_report()
+    r = custom_rule(r, "n", "even", is_even(4))
+    r = custom_rule(r, "m", "even", is_even(3))
+    assert_eq(error_count(r), 1)
+    assert_eq(error_rule(r, 0), "even")
+}
+
+func test_custom_rule_message() {
+    let r = custom_rule_message(new_report(), "k", "positive", 1 > 0, "must be positive")
+    assert_eq(error_count(r), 0)
+    let f = custom_rule_message(new_report(), "k", "positive", 1 < 0, "must be positive")
+    assert_eq(error_message(f, 0), "must be positive")
+}
+
+// --- slice 03.6: multi-field ---
+
+func test_validate_required_all() {
+    let r = validate_required_all(new_report(), ["a", "b"], ["x", ""])
+    assert_eq(error_count(r), 1)
+    assert_eq(error_field(r, 0), "b")
+}
+
+func test_validate_range_all() {
+    let r = validate_range_all(new_report(), ["a", "b"], [5, 12], 1, 10)
+    assert_eq(error_count(r), 1)
+    assert_eq(error_field(r, 0), "b")
+}
+
+func test_multi_field_mismatch() {
+    let r = validate_required_all(new_report(), ["a"], ["x", "y"])
+    assert_eq(error_count(r), 1)
+    assert_eq(error_rule(r, 0), "input")
+}
+
+func test_multiple_simultaneous_failures() {
+    let r = new_report()
+    r = required(r, "name", "")
+    r = min_value(r, "age", 10, 18)
+    r = format(r, "email", "bad", "email")
+    assert_eq(error_count(r), 3)
+    assert(is_valid(r) == false)
+    assert_eq(field_error_count(r, "name"), 1)
+}
+
+// --- slice 03.7: reporting ---
+
+func test_summarize() {
+    let r = add_error(new_report(), "f", "rule", "msg")
+    assert_eq(summarize("demo", r), "demo: 1 validation error(s)")
+}
+
+func test_print_report_returns_status() {
+    let clean = print_report("clean", new_report())
+    assert(clean)
+    let dirty = add_error(new_report(), "field", "rule", "detail")
+    let ok = print_report("dirty", dirty)
+    assert(ok == false)
+}

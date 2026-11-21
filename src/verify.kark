@@ -1,0 +1,38 @@
+// Integration verification for the Karkain-Validation public API.
+import validation
+
+func is_adult(age) {
+    return age >= 18
+}
+
+func main() {
+    let r = validation.new_report()
+
+    r = validation.required(r, "name", "Ajit")
+    r = validation.length_range(r, "name", "Ajit", 2, 40)
+    r = validation.in_range(r, "age", 21, 0, 120)
+    r = validation.format(r, "email", "ajit@example.com", "email")
+    r = validation.format(r, "zip", "12345", "digits")
+    r = validation.custom_rule(r, "age", "adult", is_adult(21))
+
+    assert_eq(validation.error_count(r), 0)
+    assert(validation.is_valid(r))
+    assert_eq(validation.summarize("profile", r), "profile: 0 validation error(s)")
+
+    let bad = validation.new_report()
+    bad = validation.required(bad, "name", "")
+    bad = validation.in_range(bad, "age", 200, 0, 120)
+    bad = validation.format(bad, "email", "bad", "email")
+    bad = validation.custom_rule(bad, "age", "adult", is_adult(12))
+
+    assert_eq(validation.error_count(bad), 4)
+    assert(validation.is_valid(bad) == false)
+    assert_eq(validation.field_error_count(bad, "age"), 2)
+    assert_eq(validation.error_rule(bad, 0), "required")
+    assert_eq(validation.error_rule(bad, 1), "range")
+    assert_eq(validation.error_rule(bad, 2), "format")
+    assert_eq(validation.error_rule(bad, 3), "adult")
+
+    let ok = validation.print_report("profile", bad)
+    assert(ok == false)
+}

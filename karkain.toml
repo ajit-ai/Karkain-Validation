@@ -1,0 +1,7 @@
+name = "karkain-validation"
+version = "0.1.0-dev"
+description = "Reusable data and rule validation framework for Karkain v1.2.0"
+license = "MIT"
+targets = ["native"]
+
+[dependencies]

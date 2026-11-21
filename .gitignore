@@ -30,6 +30,12 @@ TestResults/
 *.dll
 *.exe
 
+# Karkain compiler / test generated artifacts
+.karkain/
+*.test.c
+*.karkain.c
+karkain.lock
+
 # IDE and editors
 .vscode/
 .idea/

@@ -1,0 +1,27 @@
+// Karkain-Validation runnable example: validate a user profile.
+// scripts\verify.ps1 stages validation.kark beside this file before running.
+import validation
+
+func is_adult(age) {
+    return age >= 18
+}
+
+func main() {
+    let r = validation.new_report()
+
+    let name = "Ajit"
+    let age = 21
+    let email = "ajit@example.com"
+    let zip = "12345"
+
+    r = validation.required(r, "name", name)
+    r = validation.length_range(r, "name", name, 2, 40)
+    r = validation.in_range(r, "age", age, 0, 120)
+    r = validation.format(r, "email", email, "email")
+    r = validation.format(r, "zip", zip, "digits")
+    r = validation.custom_rule(r, "age", "adult", is_adult(age))
+
+    println(validation.summarize("user profile", r))
+    let ok = validation.print_report("user profile", r)
+    println("valid=" + str(ok))
+}
