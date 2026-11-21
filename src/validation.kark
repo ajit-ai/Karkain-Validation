@@ -1,0 +1,167 @@
+// Karkain-Validation - reusable data and rule validation.
+// Compatible with Karkain Language v1.2.0 (verified tag v1.2.0,
+// commit 77d70693e1e3134dac312a303bffafa7d50fa988).
+//
+// Representation convention (top-level structs are unavailable in the
+// stable v1.2.0 subset): a validation report is a flat mixed array of
+// error triples:
+//
+//     [field, rule, message, field, rule, message, ...]
+//
+// An empty report means validation succeeded. Arrays are values in
+// Karkain, so every function returns the updated report and callers must
+// capture it: report = validation.required(report, "name", name).
+//
+// Comparison expressions in v1.2.0 produce integer 1/0 results. Truth
+// checks use `if ok` / `if ok == false` consistently; no type-specific
+// boolean assumptions are made.
+
+// new_report returns an empty validation report.
+public func new_report() {
+    return []
+}
+
+// add_error appends one diagnostic triple to a report.
+public func add_error(report, field, rule, message) {
+    let out = report
+    out = push(out, field)
+    out = push(out, rule)
+    out = push(out, message)
+    return out
+}
+
+// expect is the generic rule primitive. It adds an error when ok is false
+// and otherwise returns the report unchanged. All rules build on it.
+public func expect(report, field, rule, ok, message) {
+    if ok {
+        return report
+    }
+    return add_error(report, field, rule, message)
+}
+
+// error_count returns the number of recorded validation errors.
+public func error_count(report) {
+    return len(report) / 3
+}
+
+// is_valid reports whether the validation produced no errors.
+public func is_valid(report) {
+    return error_count(report) == 0
+}
+
+// error_field returns the field name of the nth error.
+public func error_field(report, n) {
+    return report[n * 3]
+}
+
+// error_rule returns the rule name of the nth error.
+public func error_rule(report, n) {
+    return report[n * 3 + 1]
+}
+
+// error_message returns the diagnostic message of the nth error.
+public func error_message(report, n) {
+    return report[n * 3 + 2]
+}
+
+// field_error_count counts errors recorded for one named field.
+public func field_error_count(report, field) {
+    let n = 0
+    let i = 0
+    while (i < len(report)) {
+        if report[i] == field {
+            n = n + 1
+        }
+        i = i + 3
+    }
+    return n
+}
+
+// merge_reports combines two reports into one, preserving order.
+public func merge_reports(a, b) {
+    let out = a
+    let i = 0
+    while (i < len(b)) {
+        out = push(out, b[i])
+        i = i + 1
+    }
+    return out
+}
+
+// required checks that a string or array value is non-empty. Numeric
+// values should use require_nonzero instead; len(number) is 0 in v1.2.0.
+public func required(report, field, value) {
+    let ok = len(value) > 0
+    let message = field + " is required"
+    return expect(report, field, "required", ok, message)
+}
+
+// require_nonzero checks that a numeric value is not zero.
+public func require_nonzero(report, field, value) {
+    let ok = value != 0
+    let message = field + " must be non-zero"
+    return expect(report, field, "nonzero", ok, message)
+}
+
+// empty checks that a string or array value is empty.
+public func empty(report, field, value) {
+    let ok = len(value) == 0
+    let message = field + " must be empty"
+    return expect(report, field, "empty", ok, message)
+}
+
+// min_value checks value >= minimum.
+public func min_value(report, field, value, minimum) {
+    let ok = value >= minimum
+    let message = field + " must be >= " + str(minimum)
+    return expect(report, field, "min", ok, message)
+}
+
+// max_value checks value <= maximum.
+public func max_value(report, field, value, maximum) {
+    let ok = value <= maximum
+    let message = field + " must be <= " + str(maximum)
+    return expect(report, field, "max", ok, message)
+}
+
+// min_length checks len(value) >= minimum.
+public func min_length(report, field, value, minimum) {
+    let ok = len(value) >= minimum
+    let message = field + " length must be >= " + str(minimum)
+    return expect(report, field, "min_length", ok, message)
+}
+
+// max_length checks len(value) <= maximum.
+public func max_length(report, field, value, maximum) {
+    let ok = len(value) <= maximum
+    let message = field + " length must be <= " + str(maximum)
+    return expect(report, field, "max_length", ok, message)
+}
+
+// in_range checks minimum <= value <= maximum using explicit branches;
+// logical `and` is not available in the verified stable subset.
+public func in_range(report, field, value, minimum, maximum) {
+    if value < minimum {
+        let message = field + " must be >= " + str(minimum)
+        return add_error(report, field, "range", message)
+    }
+    if value > maximum {
+        let message = field + " must be <= " + str(maximum)
+        return add_error(report, field, "range", message)
+    }
+    return report
+}
+
+// length_range checks minimum <= len(value) <= maximum.
+public func length_range(report, field, value, minimum, maximum) {
+    let size = len(value)
+    if size < minimum {
+        let message = field + " length must be >= " + str(minimum)
+        return add_error(report, field, "length_range", message)
+    }
+    if size > maximum {
+        let message = field + " length must be <= " + str(maximum)
+        return add_error(report, field, "length_range", message)
+    }
+    return report
+}
