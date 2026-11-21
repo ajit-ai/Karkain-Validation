@@ -1,0 +1,19 @@
+// Karkain-Validation Phase 2 example: reusable schemas and cross-field rules.
+import validation
+
+func main() {
+    let s = new_schema("registration")
+    s = add_rule(s, "name", "required", "")
+    s = add_rule(s, "name", "min_length", "lo")
+    s = add_rule(s, "email", "format", "email")
+    s = add_rule(s, "confirm", "same_as", "email")
+
+    let bounds = ["lo", 3]
+    let fields = ["name", "email", "confirm"]
+    let values = ["Ajit", "a@b.com", "a@b.com"]
+    let r = apply_schema(s, fields, values, bounds)
+
+    println(schema_summary(s))
+    println(summarize("registration", r))
+    println("errors=" + str(error_count(r)))
+}

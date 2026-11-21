@@ -43,7 +43,7 @@ try {
     Write-Output "TEST native: exit=$code"
     Write-Output $out
     if ($code -ne 0) { throw 'native tests failed' }
-    if ($out -notlike '*26 tests, 26 passed, 0 failed*') { throw 'native test summary mismatch' }
+    if ($out -notlike '*35 tests, 35 passed, 0 failed*') { throw 'native test summary mismatch' }
 
     $verify = Join-Path $repo 'src\verify.kark'
     $out = Invoke-Karkain @('run', $verify)
@@ -71,6 +71,16 @@ try {
     if ($code -ne 0) { throw 'example failed' }
     if ($out -notlike '*user profile: 0 validation error(s)*') { throw 'example summary missing' }
     if ($out -notlike '*valid=*') { throw 'example status missing' }
+
+    $advDir = Join-Path $tmp 'advanced'
+    New-Item -ItemType Directory -Path $advDir | Out-Null
+    Copy-Item -LiteralPath $module -Destination (Join-Path $advDir 'validation.kark')
+    Copy-Item -LiteralPath (Join-Path $repo 'examples\user_schema.kark') -Destination (Join-Path $advDir 'user_schema.kark')
+    $out = Invoke-Karkain @('run', (Join-Path $advDir 'user_schema.kark')); $code = $LASTEXITCODE
+    Write-Output "RUN advanced example: exit=$code"; Write-Output $out
+    if ($code -ne 0) { throw 'advanced example failed' }
+    if ($out -notlike '*registration:rules=4*') { throw 'advanced schema summary missing' }
+    if ($out -notlike '*errors=0*') { throw 'advanced schema result missing' }
 
     Write-Output 'VERIFY: ALL GATES PASSED'
 }

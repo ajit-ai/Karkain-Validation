@@ -212,3 +212,81 @@ func test_print_report_returns_status() {
     let ok = print_report("dirty", dirty)
     assert(ok == false)
 }
+
+// --- Phase 2 regression ---
+
+func test_phase1_rule_regression() {
+    let r = new_report()
+    r = required(r, "name", "ok")
+    r = min_value(r, "age", 10, 18)
+    r = format(r, "zip", "12345", "digits")
+    r = custom_rule(r, "even", "even", true)
+    assert_eq(error_count(r), 1)
+    assert_eq(error_rule(r, 0), "min")
+}
+
+// --- Phase 2 additions ---
+
+func test_new_schema() {
+    let s = new_schema("user")
+    assert_eq(schema_name(s), "user")
+    assert_eq(rule_count(s), 0)
+    assert_eq(schema_summary(s), "user:rules=0")
+}
+
+func test_field_value() {
+    let f = ["a", "b"]
+    let v = [1, 2]
+    assert_eq(field_value(f, v, "b", 0), 2)
+    assert_eq(field_value(f, v, "missing", 9), 9)
+}
+
+func test_bound_value() {
+    let b = ["min", 2, "max", 8]
+    assert_eq(bound_value(b, "min", 0), 2)
+    assert_eq(bound_value(b, "max", 0), 8)
+    assert_eq(bound_value(b, "none", 5), 5)
+}
+
+func test_schema_required_format() {
+    let s = add_rule(add_rule(new_schema("s"), "name", "required", ""), "zip", "format", "digits")
+    let r = apply_schema(s, ["name", "zip"], ["Ajit", "12345"], [])
+    assert(is_valid(r))
+    let bad = apply_schema(s, ["name", "zip"], ["", "x"], [])
+    assert_eq(error_count(bad), 2)
+}
+
+func test_schema_bounds() {
+    let s = add_rule(new_schema("s"), "name", "min_length", "lo")
+    let bounds = ["lo", 3]
+    let ok = apply_schema(s, ["name"], ["abcd"], bounds)
+    let bad = apply_schema(s, ["name"], ["ab"], bounds)
+    assert(is_valid(ok))
+    assert_eq(error_count(bad), 1)
+}
+
+func test_schema_cross_field() {
+    let s = add_rule(new_schema("s"), "confirm", "same_as", "password")
+    let ok = apply_schema(s, ["password", "confirm"], ["x", "x"], [])
+    let bad = apply_schema(s, ["password", "confirm"], ["x", "y"], [])
+    assert(is_valid(ok))
+    assert_eq(error_count(bad), 1)
+    assert_eq(error_rule(bad, 0), "same_as")
+}
+
+func test_validate_collection() {
+    let s = add_rule(new_schema("s"), "item", "format", "digits")
+    let r = validate_collection(s, "item", ["123", "abc", "456"])
+    assert_eq(error_count(r), 1)
+    assert_eq(error_field(r, 0), "item[1]")
+}
+
+func test_merge_schemas() {
+    let a = add_rule(new_schema("a"), "x", "required", "")
+    let b = add_rule(new_schema("b"), "y", "required", "")
+    let m = merge_schemas(a, b)
+    assert_eq(schema_name(m), "a")
+    assert_eq(rule_count(m), 2)
+    let r = apply_schema(m, ["x", "y"], ["1", ""], [])
+    assert_eq(error_count(r), 1)
+}
