@@ -165,3 +165,158 @@ public func length_range(report, field, value, minimum, maximum) {
     }
     return report
 }
+
+// is_digits reports whether a non-empty string contains only ASCII digits.
+// Character classification uses the verified `contains` builtin over a
+// literal alphabet; no unsupported regex or Unicode API is assumed.
+public func is_digits(value) {
+    let n = len(value)
+    if n == 0 {
+        return false
+    }
+    let i = 0
+    while (i < n) {
+        if contains("0123456789", value[i]) == false {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// is_alpha reports whether a non-empty string contains only ASCII letters.
+public func is_alpha(value) {
+    let n = len(value)
+    if n == 0 {
+        return false
+    }
+    let i = 0
+    while (i < n) {
+        if contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", value[i]) == false {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// is_alphanumeric reports whether a non-empty string contains only ASCII
+// letters or digits.
+public func is_alphanumeric(value) {
+    let n = len(value)
+    if n == 0 {
+        return false
+    }
+    let i = 0
+    while (i < n) {
+        if contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", value[i]) == false {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// is_email_basic performs a deliberately simple structural check: a
+// non-empty string containing '@' and '.', not starting or ending with
+// '@', and longer than four characters. It is not RFC 5322 validation.
+public func is_email_basic(value) {
+    let n = len(value)
+    if n <= 4 {
+        return false
+    }
+    if contains(value, "@") == false {
+        return false
+    }
+    if contains(value, ".") == false {
+        return false
+    }
+    if value[0] == "@" {
+        return false
+    }
+    if value[n - 1] == "@" {
+        return false
+    }
+    return true
+}
+
+// format applies a named built-in format validator. Supported names are
+// "digits", "alpha", "alphanumeric" and "email". Unknown names record an
+// error with rule "format" rather than being silently accepted.
+public func format(report, field, value, format_name) {
+    if format_name == "digits" {
+        return expect(report, field, "format", is_digits(value), field + " must contain digits only")
+    }
+    if format_name == "alpha" {
+        return expect(report, field, "format", is_alpha(value), field + " must contain letters only")
+    }
+    if format_name == "alphanumeric" {
+        return expect(report, field, "format", is_alphanumeric(value), field + " must contain letters or digits only")
+    }
+    if format_name == "email" {
+        return expect(report, field, "format", is_email_basic(value), field + " must be a basic email address")
+    }
+    let message = field + " has unknown format " + format_name
+    return add_error(report, field, "format", message)
+}
+
+// custom_rule invokes an application-defined predicate result. The caller
+// writes the predicate in Karkain and passes its 1/0 result here; no
+// function-pointer or dynamic-dispatch feature is assumed.
+public func custom_rule(report, field, rule_name, ok) {
+    let message = field + " failed custom rule " + rule_name
+    return expect(report, field, rule_name, ok, message)
+}
+
+// custom_rule_message is the custom rule form with an explicit diagnostic.
+public func custom_rule_message(report, field, rule_name, ok, message) {
+    return expect(report, field, rule_name, ok, message)
+}
+
+// validate_required_all applies the required rule to parallel arrays of
+// field names and values. A length mismatch is itself recorded as an error
+// so invalid input is handled predictably.
+public func validate_required_all(report, fields, values) {
+    if len(fields) != len(values) {
+        return add_error(report, "fields", "input", "field and value counts differ")
+    }
+    let out = report
+    let i = 0
+    while (i < len(fields)) {
+        out = required(out, fields[i], values[i])
+        i = i + 1
+    }
+    return out
+}
+
+// validate_range_all applies in_range to parallel arrays of field names
+// and numeric values.
+public func validate_range_all(report, fields, values, minimum, maximum) {
+    if len(fields) != len(values) {
+        return add_error(report, "fields", "input", "field and value counts differ")
+    }
+    let out = report
+    let i = 0
+    while (i < len(fields)) {
+        out = in_range(out, fields[i], values[i], minimum, maximum)
+        i = i + 1
+    }
+    return out
+}
+
+// summarize builds a one-line validation summary.
+public func summarize(title, report) {
+    return title + ": " + str(error_count(report)) + " validation error(s)"
+}
+
+// print_report prints a summary and every recorded diagnostic, then
+// returns overall validation status.
+public func print_report(title, report) {
+    println(summarize(title, report))
+    let i = 0
+    while (i < error_count(report)) {
+        println(error_field(report, i) + " [" + error_rule(report, i) + "] " + error_message(report, i))
+        i = i + 1
+    }
+    return is_valid(report)
+}
